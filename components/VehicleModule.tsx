@@ -37,14 +37,46 @@ const VehicleModule: React.FC<Props> = ({ user, onAction }) => {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const vehicleData = Object.fromEntries(formData.entries()) as any;
+    const raw = Object.fromEntries(formData.entries()) as any;
+    // Normalização de tipos para campos numéricos e datas
+    const vehicleData: Partial<Vehicle> = {
+      placa: (raw.placa || '').toString().toUpperCase(),
+      marca: (raw.marca || '').toString(),
+      modelo: (raw.modelo || '').toString(),
+      renavam: (raw.renavam || '').toString(),
+      chassi: (raw.chassi || '').toString(),
+      cor: (raw.cor || '').toString(),
+      combustivel: (raw.combustivel || '').toString(),
+      ano_fabricacao: raw.ano_fabricacao ? Number(raw.ano_fabricacao) : undefined,
+      ano_modelo: raw.ano_modelo ? Number(raw.ano_modelo) : undefined,
+      quilometragem: raw.quilometragem ? Number(raw.quilometragem) : 0,
+      data_ultima_revisao: raw.data_ultima_revisao ? String(raw.data_ultima_revisao) : new Date().toISOString().slice(0,10),
+      status: editingVehicle?.status ?? VehicleStatus.ACTIVE,
+      observacoes: editingVehicle?.observacoes ?? ''
+    };
     
     if (editingVehicle) {
-      const updated = vehicles.map(v => v.id === editingVehicle.id ? { ...editingVehicle, ...vehicleData } : v);
+      const updated = vehicles.map(v => v.id === editingVehicle.id ? { ...editingVehicle, ...vehicleData } as Vehicle : v);
       saveToStorage(updated);
       onAction('ALTERAÇÃO', `Veículo ${vehicleData.placa} atualizado.`);
     } else {
-      const newVehicle = { ...vehicleData, id: Math.random().toString(36).substr(2, 9), status: VehicleStatus.ACTIVE };
+      const newVehicle: Vehicle = {
+        id: Math.random().toString(36).substr(2, 9),
+        placa: vehicleData.placa || '',
+        renavam: vehicleData.renavam || '',
+        chassi: vehicleData.chassi || '',
+        marca: vehicleData.marca || '',
+        modelo: vehicleData.modelo || '',
+        ano_fabricacao: vehicleData.ano_fabricacao ?? new Date().getFullYear(),
+        ano_modelo: vehicleData.ano_modelo ?? new Date().getFullYear(),
+        tipo_veiculo: 'Leve',
+        cor: vehicleData.cor || '',
+        combustivel: vehicleData.combustivel || 'Flex',
+        quilometragem: vehicleData.quilometragem ?? 0,
+        data_ultima_revisao: vehicleData.data_ultima_revisao || new Date().toISOString().slice(0,10),
+        status: VehicleStatus.ACTIVE,
+        observacoes: ''
+      };
       saveToStorage([...vehicles, newVehicle]);
       onAction('CRIAÇÃO', `Novo veículo placa ${vehicleData.placa} adicionado.`);
     }
@@ -169,10 +201,18 @@ const VehicleModule: React.FC<Props> = ({ user, onAction }) => {
                 <input name="ano_modelo" type="number" defaultValue={editingVehicle?.ano_modelo} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
               </div>
               <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase">Quilometragem</label>
+                <input name="quilometragem" type="number" defaultValue={editingVehicle?.quilometragem ?? 0} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" placeholder="0" />
+              </div>
+              <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-500 uppercase">Combustível</label>
                 <select name="combustivel" defaultValue={editingVehicle?.combustivel} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
                   <option>Flex</option><option>Gasolina</option><option>Diesel</option><option>Etanol</option><option>Elétrico</option>
                 </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase">Data Última Revisão</label>
+                <input name="data_ultima_revisao" type="date" defaultValue={editingVehicle?.data_ultima_revisao} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
               </div>
               <div className="md:col-span-3 pt-4 flex justify-end gap-3 border-t border-slate-100 mt-4">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 text-sm font-bold text-slate-400">Cancelar</button>
