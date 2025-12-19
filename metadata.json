@@ -1,0 +1,7 @@
+{
+  "name": "FrotaGestor Pro - Sistema de Gestão de Frotas",
+  "description": "Uma plataforma completa de gestão de frotas com controle de veículos, oficinas, inspeções digitais e dashboards analíticos, desenvolvida com foco em UX e performance.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
