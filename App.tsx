@@ -15,7 +15,8 @@ import {
   Plus,
   FileText,
   Users,
-  Activity
+  Activity,
+  Settings
 } from 'lucide-react';
 import { User, UserRole, AuditLog } from './types';
 
@@ -28,6 +29,7 @@ import Login from './components/Login';
 import UserModule from './components/UserModule';
 import LogsModule from './components/LogsModule';
 import UpdateNotifier from './components/UpdateNotifier';
+import SettingsModule from './components/SettingsModule';
 import { readStorage, writeStorage } from './utils/storage';
 
 const App: React.FC = () => {
@@ -78,6 +80,7 @@ const App: React.FC = () => {
     { id: 'stations', label: 'Postos', icon: <Droplet size={20} />, roles: [UserRole.ADMIN] },
     { id: 'workshops', label: 'Oficinas', icon: <Wrench size={20} />, roles: [UserRole.ADMIN] },
     { id: 'parts', label: 'Lojas de Peças', icon: <ShoppingBag size={20} />, roles: [UserRole.ADMIN] },
+    { id: 'settings', label: 'Configurações', icon: <Settings size={20} />, roles: [UserRole.ADMIN] },
   ];
 
   return (
@@ -144,6 +147,7 @@ const App: React.FC = () => {
             {activeTab === 'stations' && <ResourceModule type="station" user={currentUser} onAction={(act, det) => addLog(act, 'Postos', det)} />}
             {activeTab === 'workshops' && <ResourceModule type="workshop" user={currentUser} onAction={(act, det) => addLog(act, 'Oficinas', det)} />}
             {activeTab === 'parts' && <ResourceModule type="parts" user={currentUser} onAction={(act, det) => addLog(act, 'Peças', det)} />}
+            {activeTab === 'settings' && <SettingsModule user={currentUser} onAction={(act, det) => addLog(act, 'Configurações', det)} />}
           </div>
         </div>
       </main>
