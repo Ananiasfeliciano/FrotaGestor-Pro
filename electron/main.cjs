@@ -1,7 +1,13 @@
 const path = require('node:path');
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain } = require('electron');
+const { autoUpdater } = require('electron-updater');
 
 const isDev = !app.isPackaged;
+
+// ── Auto-updater config ──────────────────────────────────
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.logger = console;
 
 // ── Single-instance lock ─────────────────────────────────
 const gotLock = app.requestSingleInstanceLock();
@@ -17,11 +23,90 @@ if (!gotLock) {
   });
 }
 
+/** @returns {BrowserWindow|null} */
+function getMainWindow() {
+  return BrowserWindow.getAllWindows()[0] || null;
+}
+
+// ── Auto-update events → renderer ────────────────────────
+function setupAutoUpdater() {
+  autoUpdater.on('checking-for-update', () => {
+    const win = getMainWindow();
+    if (win) win.webContents.send('update-status', { status: 'checking' });
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    const win = getMainWindow();
+    if (win) win.webContents.send('update-status', {
+      status: 'available',
+      version: info.version,
+      releaseNotes: info.releaseNotes || '',
+    });
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    const win = getMainWindow();
+    if (win) win.webContents.send('update-status', { status: 'not-available' });
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    const win = getMainWindow();
+    if (win) win.webContents.send('update-status', {
+      status: 'downloading',
+      percent: Math.round(progress.percent),
+      transferred: progress.transferred,
+      total: progress.total,
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    const win = getMainWindow();
+    if (win) win.webContents.send('update-status', {
+      status: 'downloaded',
+      version: info.version,
+    });
+  });
+
+  autoUpdater.on('error', (err) => {
+    const win = getMainWindow();
+    if (win) win.webContents.send('update-status', {
+      status: 'error',
+      message: err.message || String(err),
+    });
+  });
+}
+
+// ── IPC handlers (renderer → main) ──────────────────────
+ipcMain.handle('updater:check', async () => {
+  if (isDev) return { status: 'dev-mode' };
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { status: 'ok', version: result?.updateInfo?.version };
+  } catch (err) {
+    return { status: 'error', message: String(err) };
+  }
+});
+
+ipcMain.handle('updater:download', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { status: 'ok' };
+  } catch (err) {
+    return { status: 'error', message: String(err) };
+  }
+});
+
+ipcMain.handle('updater:install', () => {
+  autoUpdater.quitAndInstall(false, true);
+});
+
+ipcMain.handle('app:version', () => {
+  return app.getVersion();
+});
+
 // ── Window creation ──────────────────────────────────────
 function createWindow() {
-  const iconPath = isDev
-    ? path.join(__dirname, '..', 'build', 'icon.png')
-    : path.join(__dirname, '..', 'build', 'icon.png');
+  const iconPath = path.join(__dirname, '..', 'build', 'icon.png');
 
   const mainWindow = new BrowserWindow({
     width: 1400,
@@ -35,7 +120,7 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      sandbox: false, // Required for electron-updater IPC
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
@@ -44,7 +129,13 @@ function createWindow() {
   if (!isDev) Menu.setApplicationMenu(null);
 
   // Mostra a janela apenas quando pronta (evita flash branco)
-  mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    // Verificar atualizações 3s após abrir a janela
+    if (!isDev) {
+      setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 3000);
+    }
+  });
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:3000');
@@ -57,6 +148,7 @@ function createWindow() {
 
 // ── App lifecycle ────────────────────────────────────────
 app.whenReady().then(() => {
+  setupAutoUpdater();
   createWindow();
 
   app.on('activate', () => {

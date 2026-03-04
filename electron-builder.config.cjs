@@ -1,6 +1,6 @@
 /**
  * electron-builder configuration for FrotaGestor Pro
- * Generates NSIS Windows Installer (.exe)
+ * Generates NSIS Windows Installer (.exe) with auto-update via GitHub Releases
  */
 module.exports = {
   appId: 'com.sartinfo.frotagestor',
@@ -15,11 +15,28 @@ module.exports = {
   files: [
     'dist/**/*',
     'electron/**/*',
+    'node_modules/electron-updater/**/*',
+    'node_modules/lazy-val/**/*',
+    'node_modules/semver/**/*',
+    'node_modules/lodash.isequal/**/*',
+    'node_modules/js-yaml/**/*',
+    'node_modules/argparse/**/*',
+    'node_modules/tiny-typed-emitter/**/*',
+    'node_modules/sax/**/*',
     'package.json',
   ],
 
-  // Do not install production node_modules — Vite bundles everything into dist/
   npmRebuild: false,
+
+  // ── Publicação no GitHub Releases (auto-update) ──────────
+  publish: [
+    {
+      provider: 'github',
+      owner: 'Ananiasfeliciano',
+      repo: 'frotagestor-pro---sistema-de-gest-o-de-frotas',
+      releaseType: 'release',
+    },
+  ],
 
   win: {
     target: [
@@ -50,7 +67,4 @@ module.exports = {
   },
 
   asar: true,
-
-  // Portable version as extra target (optional — uncomment to also generate .exe portable)
-  // extraTargets: ['portable'],
 };

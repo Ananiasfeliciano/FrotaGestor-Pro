@@ -27,6 +27,7 @@ import ResourceModule from './components/ResourceModule';
 import Login from './components/Login';
 import UserModule from './components/UserModule';
 import LogsModule from './components/LogsModule';
+import UpdateNotifier from './components/UpdateNotifier';
 import { readStorage, writeStorage } from './utils/storage';
 
 const App: React.FC = () => {
@@ -146,6 +147,9 @@ const App: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Notificador de atualizações automáticas */}
+      <UpdateNotifier />
     </div>
   );
 };
