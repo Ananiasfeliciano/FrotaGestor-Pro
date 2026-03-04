@@ -37,7 +37,7 @@ import {
   Gauge
 } from 'lucide-react';
 import { Vehicle, VehicleStatus, Inspection, Receipt } from '../types';
-import { readStorage } from '../utils/storage';
+import { useSyncState } from '../utils/useSyncState';
 
 ChartJS.register(
   CategoryScale, 
@@ -63,7 +63,12 @@ interface MaintenanceAlert {
 }
 
 const Dashboard: React.FC = () => {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehicles] = useSyncState<Vehicle[]>('fleet_vehicles', []);
+  const [workshops] = useSyncState<any[]>('fleet_workshops', []);
+  const [stations] = useSyncState<any[]>('fleet_stations', []);
+  const [parts] = useSyncState<any[]>('fleet_parts', []);
+  const [allInspections] = useSyncState<any[]>('fleet_inspections', []);
+
   const [inspections, setInspections] = useState<any[]>([]);
   const [recentReceipts, setRecentReceipts] = useState<any[]>([]);
   const [recentOilChanges, setRecentOilChanges] = useState<any[]>([]);
@@ -73,14 +78,9 @@ const Dashboard: React.FC = () => {
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
 
+  // Recalcular quando os dados sincronizados mudarem
   useEffect(() => {
-    // Carregar Veículos
-    const vData: Vehicle[] = readStorage<Vehicle[]>('fleet_vehicles', []);
-    setVehicles(vData);
-
-    // Carregar parceiros
-    const workshops = readStorage<any[]>('fleet_workshops', []);
-    const stations = readStorage<any[]>('fleet_stations', []);
+    const vData = vehicles;
     
     // Processar Alertas
     const REVISION_CYCLE_DAYS = 365;
@@ -158,10 +158,9 @@ const Dashboard: React.FC = () => {
     setRecentOilChanges(allOilChanges.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5));
 
     // Carregar Inspeções
-    setInspections(readStorage<any[]>('fleet_inspections', []));
+    setInspections(allInspections);
 
     // Consolidar Lançamentos
-    const parts = readStorage<any[]>('fleet_parts', []);
     const allReceipts: any[] = [];
     const spendingByMonth = new Array(10).fill(0);
 
@@ -184,7 +183,7 @@ const Dashboard: React.FC = () => {
 
     setMonthlyData(spendingByMonth);
     setRecentReceipts(allReceipts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6));
-  }, []);
+  }, [vehicles, workshops, stations, parts, allInspections]);
 
   const stats = [
     { label: 'Total Veículos', value: vehicles.length, icon: <Car size={28} />, color: 'blue' },

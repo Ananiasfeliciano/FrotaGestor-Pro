@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { readStorage, writeStorage } from '../utils/storage';
+import { syncWrite, syncRemove, SYNC_KEYS as SYNCABLE_KEYS } from '../utils/syncStorage';
+import { isFirebaseConfigured } from '../utils/firebase';
 
 interface Props {
   user: User;
@@ -175,12 +177,23 @@ const SettingsModule: React.FC<Props> = ({ user, onAction }) => {
         try {
           const data = JSON.parse(ev.target?.result as string);
           if (!data || typeof data !== 'object') throw new Error('Formato inválido');
+
+          // Validar que o backup contém apenas chaves conhecidas
+          const validKeys = STORAGE_KEYS.map(s => s.key);
+          const dataKeys = Object.keys(data).filter(k => !k.startsWith('_'));
+          const unknownKeys = dataKeys.filter(k => !validKeys.includes(k));
+          if (unknownKeys.length > 0) {
+            alert(`Backup contém chaves desconhecidas: ${unknownKeys.join(', ')}. Importação cancelada por segurança.`);
+            return;
+          }
           
           if (!confirm(`Importar backup de ${data._exportDate ? new Date(data._exportDate).toLocaleDateString('pt-BR') : 'data desconhecida'}?\n\nIsso SUBSTITUIRÁ todos os dados atuais.`)) return;
 
           STORAGE_KEYS.forEach(({ key }) => {
             if (data[key] !== undefined) {
-              localStorage.setItem(key, JSON.stringify(data[key]));
+              // Não importar sessão de outro backup
+              if (key === 'frota_user') return;
+              syncWrite(key, data[key]);
             }
           });
 
@@ -199,7 +212,7 @@ const SettingsModule: React.FC<Props> = ({ user, onAction }) => {
   const handleClearStorage = (key: string, label: string) => {
     if (key === 'frota_user') return alert('Não é possível apagar a sessão atual.');
     if (!confirm(`Apagar todos os dados de "${label}"?\nEsta ação não pode ser desfeita.`)) return;
-    localStorage.removeItem(key);
+    syncRemove(key);
     onAction('LIMPEZA', `Dados de "${label}" removidos.`);
     refreshStorageStats();
   };
@@ -208,7 +221,7 @@ const SettingsModule: React.FC<Props> = ({ user, onAction }) => {
     if (!confirm('ATENÇÃO: Isso apagará TODOS os dados do sistema (veículos, inspeções, lançamentos, logs).\n\nDeseja continuar?')) return;
     if (!confirm('Tem certeza ABSOLUTA? Faça backup antes!')) return;
     STORAGE_KEYS.forEach(({ key }) => {
-      if (key !== 'frota_user') localStorage.removeItem(key);
+      if (key !== 'frota_user') syncRemove(key);
     });
     onAction('RESET', 'Todos os dados do sistema foram apagados.');
     refreshStorageStats();

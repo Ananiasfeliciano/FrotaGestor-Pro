@@ -1,8 +1,14 @@
 
-import React, { useState } from 'react';
-import { LogIn, Shield, User as UserIcon, AlertCircle } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { LogIn, Shield, User as UserIcon, AlertCircle, Lock } from 'lucide-react';
 import { User, UserRole } from '../types';
-import { readStorage, writeStorage } from '../utils/storage';
+import { syncRead } from '../utils/syncStorage';
+import { writeStorage } from '../utils/storage';
+import { verifyPassword } from '../utils/crypto';
+
+// ── Constantes de rate-limiting ─────────────────────────────
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_SECONDS = 60;
 
 interface Props {
   onLogin: (user: User) => void;
@@ -12,46 +18,83 @@ const Login: React.FC<Props> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [lockUntil, setLockUntil] = useState<number>(0);
+  const [lockCountdown, setLockCountdown] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const startLockout = () => {
+    const until = Date.now() + LOCKOUT_SECONDS * 1000;
+    setLockUntil(until);
+    setLockCountdown(LOCKOUT_SECONDS);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      const remaining = Math.ceil((until - Date.now()) / 1000);
+      if (remaining <= 0) {
+        clearInterval(timerRef.current!);
+        timerRef.current = null;
+        setLockUntil(0);
+        setLockCountdown(0);
+        setAttempts(0);
+      } else {
+        setLockCountdown(remaining);
+      }
+    }, 1000);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
+    // Rate limiting — bloquear se excedeu tentativas
+    if (Date.now() < lockUntil) {
+      setError(`Conta bloqueada. Tente novamente em ${lockCountdown}s.`);
+      return;
+    }
+
+    setIsLoading(true);
     const inputUser = username.trim().toUpperCase();
 
-    // 1. Credencial mestre do administrador (sempre funciona)
-    if (inputUser === 'SARTINFO' && password === 'str@10108893') {
-      const adminUser: User = {
-        id: 'admin-01',
-        name: 'SARTINFO Admin',
-        username: 'SARTINFO',
-        role: UserRole.ADMIN,
-        status: 'Ativo'
-      };
-      writeStorage('frota_user', adminUser);
-      onLogin(adminUser);
-      return;
-    }
+    try {
+      // Validar contra usuários cadastrados no banco local (inclui admin)
+      const storedUsers = syncRead<User[]>('system_users', []);
+      const matchedUser = storedUsers.find(
+        (u) => u.username.toUpperCase() === inputUser
+      );
 
-    // 2. Validar contra usuários cadastrados no banco local
-    const storedUsers = readStorage<User[]>('system_users', []);
-    const matchedUser = storedUsers.find(
-      (u) => u.username.toUpperCase() === inputUser && u.password === password
-    );
-
-    if (matchedUser) {
-      if (matchedUser.status !== 'Ativo') {
-        setError('Usuário inativo. Contate o administrador.');
-        return;
+      if (matchedUser && matchedUser.passwordHash) {
+        const isValid = await verifyPassword(password, matchedUser.passwordHash);
+        if (isValid) {
+          if (matchedUser.status !== 'Ativo') {
+            setError('Usuário inativo. Contate o administrador.');
+            setIsLoading(false);
+            return;
+          }
+          // Salvar sessão sem expor dados sensíveis, com expiração
+          const { passwordHash: _ph, password: _pw, ...safeUser } = matchedUser;
+          const session = { ...safeUser, _loginAt: Date.now(), _expiresAt: Date.now() + 8 * 60 * 60 * 1000 };
+          writeStorage('frota_user', session);
+          setAttempts(0);
+          onLogin(safeUser as User);
+          setIsLoading(false);
+          return;
+        }
       }
-      // Salvar sessão sem expor a senha
-      const { password: _pw, ...safeUser } = matchedUser;
-      writeStorage('frota_user', safeUser as User);
-      onLogin(safeUser as User);
-      return;
-    }
 
-    setError('Credenciais inválidas. Verifique usuário e senha.');
+      // Incrementar tentativas e verificar lockout
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+      if (newAttempts >= MAX_ATTEMPTS) {
+        startLockout();
+        setError(`Muitas tentativas falhadas. Conta bloqueada por ${LOCKOUT_SECONDS}s.`);
+      } else {
+        setError(`Credenciais inválidas. (${MAX_ATTEMPTS - newAttempts} tentativa(s) restante(s))`);
+      }
+    } catch {
+      setError('Erro ao processar login.');
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -103,9 +146,12 @@ const Login: React.FC<Props> = ({ onLogin }) => {
 
           <button 
             type="submit"
-            className="w-full py-4 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-3 shadow-xl shadow-blue-200 transition-all"
+            disabled={isLoading || Date.now() < lockUntil}
+            className={`w-full py-4 px-6 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-3 shadow-xl shadow-blue-200 transition-all ${
+              isLoading || Date.now() < lockUntil ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
-            Entrar no Sistema <LogIn size={20} />
+            {isLoading ? 'Verificando...' : Date.now() < lockUntil ? `Bloqueado (${lockCountdown}s)` : 'Entrar no Sistema'} {!isLoading && Date.now() >= lockUntil ? <LogIn size={20} /> : Date.now() < lockUntil ? <Lock size={20} /> : null}
           </button>
         </form>
 

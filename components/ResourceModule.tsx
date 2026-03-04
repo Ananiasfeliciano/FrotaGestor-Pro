@@ -24,7 +24,8 @@ import {
   Droplets
 } from 'lucide-react';
 import { User, Receipt, ReceiptItem, Vehicle, VehicleStatus } from '../types';
-import { readStorage, writeStorage } from '../utils/storage';
+import { useSyncState } from '../utils/useSyncState';
+import { syncRead } from '../utils/syncStorage';
 
 interface Props {
   type: 'station' | 'workshop' | 'parts';
@@ -33,8 +34,40 @@ interface Props {
 }
 
 const ResourceModule: React.FC<Props> = ({ type, user, onAction }) => {
-  const [data, setData] = useState<any[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const configs = {
+    station: { 
+      title: 'Postos de Combustível', 
+      icon: <Droplet className="text-blue-500" />, 
+      detailField: 'combustiveis_disponiveis',
+      detailLabel: 'Combustíveis Disponíveis', 
+      receiptLabel: 'Notas de Abastecimento',
+      storageKey: 'fleet_stations' as const,
+      themeColor: 'blue'
+    },
+    workshop: { 
+      title: 'Oficinas Especializadas', 
+      icon: <Wrench className="text-amber-500" />, 
+      detailField: 'especialidades',
+      detailLabel: 'Especialidades da Oficina', 
+      receiptLabel: 'Ordens de Serviço (OS)',
+      storageKey: 'fleet_workshops' as const,
+      themeColor: 'amber'
+    },
+    parts: { 
+      title: 'Lojas de Autopeças', 
+      icon: <ShoppingBag className="text-purple-500" />, 
+      detailField: 'tipos_pecas',
+      detailLabel: 'Categorias de Peças', 
+      receiptLabel: 'Notas de Compra de Peças',
+      storageKey: 'fleet_parts' as const,
+      themeColor: 'purple'
+    },
+  };
+
+  const config = configs[type];
+
+  const [data, setData] = useSyncState<any[]>(config.storageKey, []);
+  const [vehicles, setVehicles] = useSyncState<Vehicle[]>('fleet_vehicles', []);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -46,50 +79,12 @@ const ResourceModule: React.FC<Props> = ({ type, user, onAction }) => {
   const [fuelPrice, setFuelPrice] = useState<number>(0);
   const [isOilChange, setIsOilChange] = useState<boolean>(false);
 
-  const configs = {
-    station: { 
-      title: 'Postos de Combustível', 
-      icon: <Droplet className="text-blue-500" />, 
-      detailField: 'combustiveis_disponiveis',
-      detailLabel: 'Combustíveis Disponíveis', 
-      receiptLabel: 'Notas de Abastecimento',
-      storageKey: 'fleet_stations',
-      themeColor: 'blue'
-    },
-    workshop: { 
-      title: 'Oficinas Especializadas', 
-      icon: <Wrench className="text-amber-500" />, 
-      detailField: 'especialidades',
-      detailLabel: 'Especialidades da Oficina', 
-      receiptLabel: 'Ordens de Serviço (OS)',
-      storageKey: 'fleet_workshops',
-      themeColor: 'amber'
-    },
-    parts: { 
-      title: 'Lojas de Autopeças', 
-      icon: <ShoppingBag className="text-purple-500" />, 
-      detailField: 'tipos_pecas',
-      detailLabel: 'Categorias de Peças', 
-      receiptLabel: 'Notas de Compra de Peças',
-      storageKey: 'fleet_parts',
-      themeColor: 'purple'
-    },
-  };
-
-  const config = configs[type];
-
-  useEffect(() => {
-    setData(readStorage<any[]>(config.storageKey, []));
-    setVehicles(readStorage<Vehicle[]>('fleet_vehicles', []));
-  }, [type, config.storageKey]);
-
   const saveToStorage = (list: any[]) => {
     setData(list);
-    writeStorage(config.storageKey, list);
   };
 
   const addReceiptItem = () => {
-    setReceiptItems([...receiptItems, { id: Math.random().toString(), description: '', quantity: 1, unitValue: 0 }]);
+    setReceiptItems([...receiptItems, { id: crypto.randomUUID(), description: '', quantity: 1, unitValue: 0 }]);
   };
 
   const updateReceiptItem = (id: string, field: keyof ReceiptItem, value: any) => {
@@ -115,7 +110,7 @@ const ResourceModule: React.FC<Props> = ({ type, user, onAction }) => {
       saveToStorage(updated);
       onAction?.('ALTERAÇÃO', `${config.title}: ${itemData.nome} atualizado.`);
     } else {
-      const newItem = { ...itemData, id: Math.random().toString(36).substr(2, 9), receipts: [] };
+      const newItem = { ...itemData, id: crypto.randomUUID(), receipts: [] };
       saveToStorage([...data, newItem]);
       onAction?.('CRIAÇÃO', `${config.title}: ${itemData.nome} cadastrado.`);
     }
@@ -132,7 +127,7 @@ const ResourceModule: React.FC<Props> = ({ type, user, onAction }) => {
     const nextOilKm = formData.get('nextOilChangeKm') ? parseInt(formData.get('nextOilChangeKm') as string) : undefined;
 
     const receiptData: Receipt = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       date: formData.get('date') as string,
       value: totalReceiptValue || manualVal,
       description: formData.get('description') as string,
@@ -158,21 +153,16 @@ const ResourceModule: React.FC<Props> = ({ type, user, onAction }) => {
 
     // Atualização de Frota (KM e Status)
     if (vehicleId) {
-      const vSaved = readStorage<Vehicle[] | null>('fleet_vehicles', null);
-      if (vSaved) {
-        const vList: Vehicle[] = vSaved;
-        const updatedVList = vList.map(v => {
-          if (v.id === vehicleId) {
-            let uV = { ...v };
-            if (mileage && mileage > v.quilometragem) uV.quilometragem = mileage;
-            if (type === 'workshop' && v.status === VehicleStatus.MAINTENANCE) uV.status = VehicleStatus.ACTIVE;
-            return uV;
-          }
-          return v;
-        });
-        writeStorage('fleet_vehicles', updatedVList);
-        setVehicles(updatedVList);
-      }
+      const updatedVList = vehicles.map(v => {
+        if (v.id === vehicleId) {
+          let uV = { ...v };
+          if (mileage && mileage > v.quilometragem) uV.quilometragem = mileage;
+          if (type === 'workshop' && v.status === VehicleStatus.MAINTENANCE) uV.status = VehicleStatus.ACTIVE;
+          return uV;
+        }
+        return v;
+      });
+      setVehicles(updatedVList);
     }
 
     saveToStorage(updatedData);

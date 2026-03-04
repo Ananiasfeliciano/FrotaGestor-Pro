@@ -12,7 +12,7 @@ export default defineConfig(({ command, mode }) => {
     base: isElectron ? './' : '/',
     server: {
       port: 3000,
-      host: true, // permite acesso via IP na rede local
+      host: isServe && isElectron ? false : true, // LAN apenas para web, localhost para Electron dev
     },
     plugins: [
       react(),

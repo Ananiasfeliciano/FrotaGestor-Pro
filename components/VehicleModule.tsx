@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Edit2, Trash2, Eye, X, Upload, Car, Save } from 'lucide-react';
 import { Vehicle, VehicleStatus, User, UserRole } from '../types';
-import { readStorage, writeStorage } from '../utils/storage';
+import { generateSecureId } from '../utils/crypto';
+import { useSyncState } from '../utils/useSyncState';
 
 interface Props {
   user: User;
@@ -13,26 +14,16 @@ const VehicleModule: React.FC<Props> = ({ user, onAction }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-
-  useEffect(() => {
-    const saved = readStorage<Vehicle[] | null>('fleet_vehicles', null);
-    if (saved) {
-      setVehicles(saved);
-    } else {
-      const initial = [{
-        id: '1', placa: 'SART-2024', renavam: '123456789', chassi: '9BW123', marca: 'VW', modelo: 'Gol',
-        ano_fabricacao: 2023, ano_modelo: 2024, tipo_veiculo: 'Leve', cor: 'Branco', combustivel: 'Flex',
-        quilometragem: 1000, data_ultima_revisao: '2023-10-01', status: VehicleStatus.ACTIVE, observacoes: 'Frota inicial'
-      }];
-      setVehicles(initial);
-      writeStorage('fleet_vehicles', initial);
+  const [vehicles, setVehicles] = useSyncState<Vehicle[]>('fleet_vehicles', [
+    {
+      id: '1', placa: 'SART-2024', renavam: '123456789', chassi: '9BW123', marca: 'VW', modelo: 'Gol',
+      ano_fabricacao: 2023, ano_modelo: 2024, tipo_veiculo: 'Leve', cor: 'Branco', combustivel: 'Flex',
+      quilometragem: 1000, data_ultima_revisao: '2023-10-01', status: VehicleStatus.ACTIVE, observacoes: 'Frota inicial'
     }
-  }, []);
+  ]);
 
   const saveToStorage = (list: Vehicle[]) => {
     setVehicles(list);
-    writeStorage('fleet_vehicles', list);
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -62,7 +53,7 @@ const VehicleModule: React.FC<Props> = ({ user, onAction }) => {
       onAction('ALTERAÇÃO', `Veículo ${vehicleData.placa} atualizado.`);
     } else {
       const newVehicle: Vehicle = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: generateSecureId(),
         placa: vehicleData.placa || '',
         renavam: vehicleData.renavam || '',
         chassi: vehicleData.chassi || '',

@@ -8,9 +8,15 @@ export interface User {
   id: string;
   name: string;
   username: string;
+  /** @deprecated Use passwordHash instead */
   password?: string;
+  /** SHA-256 hash da senha */
+  passwordHash?: string;
   role: UserRole;
   status: 'Ativo' | 'Inativo';
+  /** Timestamp do login (para expiração da sessão) */
+  _loginAt?: number;
+  _expiresAt?: number;
 }
 
 export interface AuditLog {

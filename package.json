@@ -24,7 +24,8 @@
     "deploy:web": "npm run generate-pwa-icons && npm run build:web"
   },
   "dependencies": {
-    "electron-updater": "^6.8.3"
+    "electron-updater": "^6.8.3",
+    "firebase": "^12.10.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
@@ -35,6 +36,7 @@
     "electron": "^35.1.5",
     "electron-builder": "^25.1.8",
     "electron-packager": "^17.1.2",
+    "firebase-tools": "^15.8.0",
     "lucide-react": "^0.562.0",
     "postcss": "^8.4.38",
     "react": "^19.2.3",

@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "frotagestor": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

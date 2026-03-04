@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Camera, FileText, CheckCircle2, AlertCircle, XCircle, X, ChevronRight, ClipboardList } from 'lucide-react';
 import { User, InspectionItemStatus, InspectionResult, Vehicle, VehicleStatus } from '../types';
-import { readStorage, writeStorage } from '../utils/storage';
+import { generateSecureId } from '../utils/crypto';
+import { useSyncState } from '../utils/useSyncState';
 
 interface Props {
   user: User;
@@ -19,19 +20,14 @@ const CHECKLIST_ITEMS = [
 const InspectionModule: React.FC<Props> = ({ user, onAction }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const [inspections, setInspections] = useState<any[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [inspections, setInspections] = useSyncState<any[]>('fleet_inspections', []);
+  const [vehicles, setVehicles] = useSyncState<Vehicle[]>('fleet_vehicles', []);
   
   const [inspectionData, setInspectionData] = useState<any>({
     veiculo_id: '',
     items: CHECKLIST_ITEMS.map((name, i) => ({ id: String(i), name, status: InspectionItemStatus.OK, observation: '' })),
     status_final: InspectionResult.APPROVED
   });
-
-  useEffect(() => {
-    setVehicles(readStorage<Vehicle[]>('fleet_vehicles', []));
-    setInspections(readStorage<any[]>('fleet_inspections', []));
-  }, []);
 
   const updateItemStatus = (id: string, status: InspectionItemStatus) => {
     setInspectionData({
@@ -47,7 +43,7 @@ const InspectionModule: React.FC<Props> = ({ user, onAction }) => {
     const targetVehicle = vehicles.find(v => v.id === inspectionData.veiculo_id);
     const newInspection = {
       ...inspectionData,
-      id: Math.random().toString(36).substr(2, 9),
+      id: generateSecureId(),
       data: new Date().toLocaleString('pt-BR'),
       responsavel: user.name,
       veiculo_placa: targetVehicle?.placa || 'N/D',
@@ -56,7 +52,6 @@ const InspectionModule: React.FC<Props> = ({ user, onAction }) => {
 
     const updatedInspections = [newInspection, ...inspections];
     setInspections(updatedInspections);
-    writeStorage('fleet_inspections', updatedInspections);
 
     // Se reprovado, coloca veículo em manutenção
     if (inspectionData.status_final === InspectionResult.REJECTED && targetVehicle) {
@@ -64,7 +59,6 @@ const InspectionModule: React.FC<Props> = ({ user, onAction }) => {
         v.id === targetVehicle.id ? { ...v, status: VehicleStatus.MAINTENANCE } : v
       );
       setVehicles(updatedVehicles);
-      writeStorage('fleet_vehicles', updatedVehicles);
     }
 
     onAction('FINALIZAÇÃO', `Inspeção do veículo ${newInspection.veiculo_placa} finalizada como ${newInspection.status_final}.`);

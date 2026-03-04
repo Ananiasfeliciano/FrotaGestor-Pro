@@ -32,7 +32,10 @@ import UserModule from './components/UserModule';
 import LogsModule from './components/LogsModule';
 import UpdateNotifier from './components/UpdateNotifier';
 import SettingsModule from './components/SettingsModule';
-import { readStorage, writeStorage } from './utils/storage';
+import { readStorage } from './utils/storage';
+import { syncWrite, syncRead, syncInitialPush, syncDisconnectAll } from './utils/syncStorage';
+import { useSyncState } from './utils/useSyncState';
+import { isFirebaseConfigured } from './utils/firebase';
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
@@ -41,7 +44,10 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
-  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [logs, setLogs] = useSyncState<AuditLog[]>('frota_logs', []);
+  const [syncStatus, setSyncStatus] = useState<'offline' | 'online' | 'syncing'>(
+    isFirebaseConfigured() ? 'syncing' : 'offline'
+  );
 
   // ── Detectar largura da tela ──────────────────────────
   useEffect(() => {
@@ -55,16 +61,21 @@ const App: React.FC = () => {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  // Carregar logs iniciais
+  // ── Inicializar sincronização Firebase ──────────────────
   useEffect(() => {
-    setLogs(readStorage<AuditLog[]>('frota_logs', []));
+    if (isFirebaseConfigured()) {
+      syncInitialPush()
+        .then(() => setSyncStatus('online'))
+        .catch(() => setSyncStatus('offline'));
+    }
+    return () => syncDisconnectAll();
   }, []);
 
   // Função auxiliar para registrar logs de sistema
   const addLog = (action: string, module: string, details: string) => {
     if (!currentUser) return;
     const newLog: AuditLog = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2, 9),
       userId: currentUser.id,
       userName: currentUser.name,
       action,
@@ -74,11 +85,17 @@ const App: React.FC = () => {
     };
     const updatedLogs = [newLog, ...logs].slice(0, 100);
     setLogs(updatedLogs);
-    writeStorage('frota_logs', updatedLogs);
   };
 
   useEffect(() => {
-    setCurrentUser(readStorage<User | null>('frota_user', null));
+    const session = readStorage<User | null>('frota_user', null);
+    // Verificar expiração da sessão (8h)
+    if (session && session._expiresAt && Date.now() > session._expiresAt) {
+      localStorage.removeItem('frota_user');
+      setCurrentUser(null);
+    } else {
+      setCurrentUser(session);
+    }
   }, []);
 
   const handleLogout = () => {
@@ -183,11 +200,19 @@ const App: React.FC = () => {
             <h1 className="text-lg md:text-xl font-bold text-slate-800 capitalize truncate">{navItems.find(i => i.id === activeTab)?.label}</h1>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
-            {!isElectron && (
-              <span className="hidden sm:inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded-md">
-                <Globe size={12} /> Online
-              </span>
-            )}
+            {/* Indicador de sincronização */}
+            <span className={`hidden sm:inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium ${
+              syncStatus === 'online' ? 'text-emerald-600 bg-emerald-50' :
+              syncStatus === 'syncing' ? 'text-amber-600 bg-amber-50' :
+              'text-slate-400 bg-slate-50'
+            }`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${
+                syncStatus === 'online' ? 'bg-emerald-500' :
+                syncStatus === 'syncing' ? 'bg-amber-500 animate-pulse' :
+                'bg-slate-400'
+              }`} />
+              {syncStatus === 'online' ? 'Sincronizado' : syncStatus === 'syncing' ? 'Sincronizando...' : isElectron ? 'Local' : 'Offline'}
+            </span>
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">{currentUser.name.charAt(0)}</div>
           </div>
         </header>

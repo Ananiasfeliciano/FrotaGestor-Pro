@@ -1,8 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Users, Shield, User as UserIcon, Trash2, X, MoreVertical, Key } from 'lucide-react';
+import { Plus, Users, Shield, User as UserIcon, Trash2, X, MoreVertical, Key, AlertTriangle } from 'lucide-react';
 import { User, UserRole } from '../types';
-import { readStorage, writeStorage } from '../utils/storage';
+import { hashPassword, generateSecureId } from '../utils/crypto';
+import { syncWrite, syncRead } from '../utils/syncStorage';
+
+// ── Requisitos de senha ─────────────────────────────────────
+const MIN_PASSWORD_LENGTH = 8;
+function validatePassword(pw: string): string | null {
+  if (pw.length < MIN_PASSWORD_LENGTH) return `Senha deve ter no mínimo ${MIN_PASSWORD_LENGTH} caracteres.`;
+  if (!/[A-Z]/.test(pw)) return 'Senha deve conter pelo menos uma letra maiúscula.';
+  if (!/[0-9]/.test(pw)) return 'Senha deve conter pelo menos um número.';
+  if (!/[^A-Za-z0-9]/.test(pw)) return 'Senha deve conter pelo menos um caractere especial.';
+  return null;
+}
 
 interface Props {
   user: User;
@@ -12,34 +23,85 @@ interface Props {
 const UserModule: React.FC<Props> = ({ user, onAction }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
-    const saved = readStorage<User[] | null>('system_users', null);
-    if (saved) {
-      setUsers(saved);
+    const saved = syncRead<User[] | null>('system_users', null);
+    if (saved && saved.length > 0) {
+      // Migrar usuários antigos que ainda tenham 'password' em texto plano
+      let needsMigration = false;
+      const migrated = saved.map(u => {
+        if (u.password && !u.passwordHash) {
+          needsMigration = true;
+          return u; // Será migrado abaixo de forma assíncrona
+        }
+        return u;
+      });
+
+      if (needsMigration) {
+        (async () => {
+          const m: User[] = [];
+          for (const u of migrated) {
+            if (u.password && !u.passwordHash) {
+              const hash = await hashPassword(u.password);
+              const { password: _pw, ...rest } = u;
+              m.push({ ...rest, passwordHash: hash } as User);
+            } else {
+              m.push(u);
+            }
+          }
+          setUsers(m);
+          syncWrite('system_users', m);
+        })();
+      } else {
+        setUsers(saved);
+      }
     } else {
-      const initialUsers: User[] = [
-        { id: '1', name: 'SARTINFO Admin', username: 'SARTINFO', password: 'str@10108893', role: UserRole.ADMIN, status: 'Ativo' },
-        { id: '2', name: 'Carlos Operador', username: 'OPERADOR', password: '123456', role: UserRole.OPERATOR, status: 'Ativo' }
-      ];
-      setUsers(initialUsers);
-      writeStorage('system_users', initialUsers);
+      // Seed inicial com senhas hasheadas
+      (async () => {
+        const adminHash = await hashPassword('str@10108893');
+        const operatorHash = await hashPassword('Operador1!');
+        const initialUsers: User[] = [
+          { id: generateSecureId(), name: 'SARTINFO Admin', username: 'SARTINFO', passwordHash: adminHash, role: UserRole.ADMIN, status: 'Ativo' },
+          { id: generateSecureId(), name: 'Carlos Operador', username: 'OPERADOR', passwordHash: operatorHash, role: UserRole.OPERATOR, status: 'Ativo' }
+        ];
+        setUsers(initialUsers);
+        syncWrite('system_users', initialUsers);
+      })();
     }
   }, []);
 
   const saveUsers = (newList: User[]) => {
     setUsers(newList);
-    writeStorage('system_users', newList);
+    syncWrite('system_users', newList);
   };
 
-  const handleCreateUser = (e: React.FormEvent) => {
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPasswordError('');
     const formData = new FormData(e.target as HTMLFormElement);
+    const rawPassword = formData.get('password') as string;
+    const rawUsername = (formData.get('username') as string).trim().toUpperCase();
+
+    // Validar unicidade de username
+    if (users.some(u => u.username.toUpperCase() === rawUsername)) {
+      setPasswordError('Já existe um usuário com este login.');
+      return;
+    }
+
+    // Validar complexidade da senha
+    const pwError = validatePassword(rawPassword);
+    if (pwError) {
+      setPasswordError(pwError);
+      return;
+    }
+
+    const passwordHash = await hashPassword(rawPassword);
     const newUser: User = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: generateSecureId(),
       name: formData.get('name') as string,
-      username: formData.get('username') as string,
-      password: formData.get('password') as string,
+      username: rawUsername,
+      passwordHash,
       role: formData.get('role') as UserRole,
       status: 'Ativo'
     };
@@ -151,9 +213,11 @@ const UserModule: React.FC<Props> = ({ user, onAction }) => {
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1.5">Senha</label>
                   <div className="relative">
-                    <input name="password" type="password" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
+                    <input name="password" type="password" required minLength={MIN_PASSWORD_LENGTH} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
                     <Key size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300" />
                   </div>
+                  <p className="text-xs text-slate-400 mt-1">Mín. {MIN_PASSWORD_LENGTH} chars, 1 maiúscula, 1 número, 1 especial.</p>
+                  {passwordError && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertTriangle size={12} /> {passwordError}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1.5">Perfil de Acesso</label>
