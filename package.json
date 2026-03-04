@@ -8,14 +8,20 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:electron": "concurrently -k \"vite --mode electron\" \"wait-on tcp:3000 && electron .\"",
     "build": "vite build",
-    "preview": "vite preview",
+    "build:web": "vite build",
+    "build:electron": "vite build --mode electron",
+    "preview": "vite preview --port 4173",
+    "preview:web": "vite preview --port 4173 --outDir dist-web",
     "typecheck": "tsc --noEmit",
-    "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:3000 && electron .\"",
-    "electron:pack": "npm run build && electron-packager . \"FrotaGestor Pro\" --platform=win32 --arch=x64 --out=release --overwrite --asar --prune=true --ignore=\"^/\\.git\"",
+    "electron:dev": "concurrently -k \"vite --mode electron\" \"wait-on tcp:3000 && electron .\"",
+    "electron:pack": "npm run build:electron && electron-packager . \"FrotaGestor Pro\" --platform=win32 --arch=x64 --out=release --overwrite --asar --prune=true --ignore=\"^/\\.git\"",
     "generate-icon": "node build/generate-icon.cjs",
-    "installer": "npm run generate-icon && npm run build && electron-builder --win --config electron-builder.config.cjs",
-    "installer:dir": "npm run generate-icon && npm run build && electron-builder --win --dir --config electron-builder.config.cjs"
+    "generate-pwa-icons": "node build/generate-pwa-icons.cjs",
+    "installer": "npm run generate-icon && npm run build:electron && electron-builder --win --config electron-builder.config.cjs",
+    "installer:dir": "npm run generate-icon && npm run build:electron && electron-builder --win --dir --config electron-builder.config.cjs",
+    "deploy:web": "npm run generate-pwa-icons && npm run build:web"
   },
   "dependencies": {
     "electron-updater": "^6.8.3"
@@ -38,6 +44,7 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
+    "vite-plugin-pwa": "^1.2.0",
     "wait-on": "^8.0.3"
   }
 }

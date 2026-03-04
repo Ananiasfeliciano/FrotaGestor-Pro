@@ -16,7 +16,9 @@ import {
   FileText,
   Users,
   Activity,
-  Settings
+  Settings,
+  Monitor,
+  Globe
 } from 'lucide-react';
 import { User, UserRole, AuditLog } from './types';
 
@@ -32,11 +34,26 @@ import UpdateNotifier from './components/UpdateNotifier';
 import SettingsModule from './components/SettingsModule';
 import { readStorage, writeStorage } from './utils/storage';
 
+const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
+
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const [logs, setLogs] = useState<AuditLog[]>([]);
+
+  // ── Detectar largura da tela ──────────────────────────
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsMobile(e.matches);
+      if (e.matches) setIsSidebarOpen(false);
+    };
+    handler(mq); // estado inicial
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   // Carregar logs iniciais
   useEffect(() => {
@@ -69,6 +86,11 @@ const App: React.FC = () => {
     setCurrentUser(null);
   };
 
+  const handleNavClick = (tabId: string) => {
+    setActiveTab(tabId);
+    if (isMobile) setIsSidebarOpen(false);
+  };
+
   if (!currentUser) return <Login onLogin={(user) => setCurrentUser(user)} />;
 
   const navItems = [
@@ -85,40 +107,65 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
-      <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} transition-all duration-300 bg-slate-900 text-white flex flex-col z-20 shadow-xl`}>
+      {/* ── Overlay (mobile) ─────────────────────── */}
+      {isMobile && isSidebarOpen && (
+        <div className="fixed inset-0 bg-black/50 z-30 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
+      )}
+
+      {/* ── Sidebar ──────────────────────────────── */}
+      <aside className={`
+        ${isMobile ? 'fixed inset-y-0 left-0 z-40' : 'relative z-20'}
+        ${isSidebarOpen ? (isMobile ? 'w-64' : 'w-64') : (isMobile ? '-translate-x-full w-64' : 'w-20')}
+        transition-all duration-300 bg-slate-900 text-white flex flex-col shadow-xl
+      `}>
         <div className="p-4 flex items-center justify-between border-b border-slate-800">
-          <div className={`flex items-center gap-3 ${!isSidebarOpen && 'justify-center w-full'}`}>
+          <div className={`flex items-center gap-3 ${!isSidebarOpen && !isMobile && 'justify-center w-full'}`}>
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shrink-0">FG</div>
-            {isSidebarOpen && <span className="font-bold text-lg tracking-tight">FrotaGestor Pro</span>}
+            {(isSidebarOpen || isMobile) && <span className="font-bold text-lg tracking-tight">FrotaGestor Pro</span>}
           </div>
+          {isMobile && isSidebarOpen && (
+            <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 hover:bg-slate-800 rounded-md">
+              <X size={20} className="text-slate-400" />
+            </button>
+          )}
         </div>
 
-        <nav className="flex-1 mt-6 px-3 space-y-1 overflow-y-auto">
+        <nav className="flex-1 mt-4 px-3 space-y-1 overflow-y-auto">
           {navItems.filter(item => item.roles.includes(currentUser.role)).map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => handleNavClick(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-colors ${
                 activeTab === item.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              } ${!isSidebarOpen && 'justify-center'}`}
+              } ${!isSidebarOpen && !isMobile && 'justify-center'}`}
             >
               {item.icon}
-              {isSidebarOpen && <span className="font-medium text-sm">{item.label}</span>}
+              {(isSidebarOpen || isMobile) && <span className="font-medium text-sm">{item.label}</span>}
             </button>
           ))}
         </nav>
 
+        {/* ── Indicador de plataforma ─────────────── */}
+        {(isSidebarOpen || isMobile) && (
+          <div className="px-4 py-2 border-t border-slate-800">
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              {isElectron ? <Monitor size={12} /> : <Globe size={12} />}
+              <span>{isElectron ? 'Desktop' : 'Web'}</span>
+            </div>
+          </div>
+        )}
+
         <div className="p-4 border-t border-slate-800 bg-slate-900/50">
-          <div className={`flex items-center gap-3 ${!isSidebarOpen && 'justify-center'}`}>
-            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-300"><UserIcon size={20} /></div>
-            {isSidebarOpen && (
+          <div className={`flex items-center gap-3 ${!isSidebarOpen && !isMobile && 'justify-center'}`}>
+            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 shrink-0"><UserIcon size={20} /></div>
+            {(isSidebarOpen || isMobile) && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold truncate">{currentUser.name}</p>
                 <p className="text-xs text-slate-400 truncate">{currentUser.role}</p>
               </div>
             )}
           </div>
-          {isSidebarOpen && (
+          {(isSidebarOpen || isMobile) && (
             <button onClick={handleLogout} className="mt-4 w-full flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
               <LogOut size={16} /> Sair
             </button>
@@ -126,19 +173,27 @@ const App: React.FC = () => {
         </div>
       </aside>
 
+      {/* ── Conteúdo principal ────────────────────── */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-slate-100 rounded-md"><Menu size={20} className="text-slate-600" /></button>
-            <h1 className="text-xl font-bold text-slate-800 capitalize">{navItems.find(i => i.id === activeTab)?.label}</h1>
+        <header className="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shrink-0 z-10">
+          <div className="flex items-center gap-3 md:gap-4">
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-slate-100 rounded-md">
+              {isMobile && isSidebarOpen ? <X size={20} className="text-slate-600" /> : <Menu size={20} className="text-slate-600" />}
+            </button>
+            <h1 className="text-lg md:text-xl font-bold text-slate-800 capitalize truncate">{navItems.find(i => i.id === activeTab)?.label}</h1>
           </div>
-          <div className="flex items-center gap-3">
-             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">{currentUser.name.charAt(0)}</div>
+          <div className="flex items-center gap-2 md:gap-3">
+            {!isElectron && (
+              <span className="hidden sm:inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded-md">
+                <Globe size={12} /> Online
+              </span>
+            )}
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">{currentUser.name.charAt(0)}</div>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex-1 overflow-y-auto p-3 md:p-6">
+          <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
             {activeTab === 'dashboard' && <Dashboard />}
             {activeTab === 'vehicles' && <VehicleModule user={currentUser} onAction={(act, det) => addLog(act, 'Veículos', det)} />}
             {activeTab === 'inspections' && <InspectionModule user={currentUser} onAction={(act, det) => addLog(act, 'Inspeções', det)} />}
@@ -152,8 +207,8 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Notificador de atualizações automáticas */}
-      <UpdateNotifier />
+      {/* Notificador de atualizações automáticas (somente Electron) */}
+      {isElectron && <UpdateNotifier />}
     </div>
   );
 };
