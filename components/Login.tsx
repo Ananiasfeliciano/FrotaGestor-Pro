@@ -110,7 +110,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
         </form>
 
         <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 text-center">
-          <p className="text-xs text-slate-400">© 2026 FrotaGestor Pro. Infraestrutura SARTINFO. Produzido por Ananias Feliciano</p>
+          <p className="text-xs text-slate-400">© 2026 FrotaGestor Pro. Infraestrutura produzido por Ananias Feliciano</p>
         </div>
       </div>
     </div>

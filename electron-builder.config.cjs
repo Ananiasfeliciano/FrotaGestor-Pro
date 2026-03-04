@@ -5,7 +5,7 @@
 module.exports = {
   appId: 'com.sartinfo.frotagestor',
   productName: 'FrotaGestor Pro',
-  copyright: 'Copyright © 2026 SARTINFO',
+  copyright: 'Copyright © 2026 FrotaGestor Pro. Infraestrutura produzido por Ananias Feliciano',
 
   directories: {
     output: 'installer-output',

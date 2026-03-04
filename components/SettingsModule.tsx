@@ -462,7 +462,7 @@ const SettingsModule: React.FC<Props> = ({ user, onAction }) => {
                 <div>
                   <p className="font-bold text-slate-800">FrotaGestor Pro</p>
                   <p className="text-sm text-slate-500">Versão instalada: <span className="font-mono font-bold text-blue-600">v{appVersion}</span></p>
-                  <p className="text-xs text-slate-400 mt-0.5">Produzido por Ananias Feliciano — SARTINFO</p>
+                  <p className="text-xs text-slate-400 mt-0.5">© 2026 FrotaGestor Pro. Infraestrutura produzido por Ananias Feliciano</p>
                 </div>
               </div>
 
