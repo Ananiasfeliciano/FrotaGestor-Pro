@@ -1,10 +1,10 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { LogIn, Shield, User as UserIcon, AlertCircle, Lock } from 'lucide-react';
 import { User, UserRole } from '../types';
-import { syncRead } from '../utils/syncStorage';
+import { syncRead, syncWrite } from '../utils/syncStorage';
 import { writeStorage } from '../utils/storage';
-import { verifyPassword } from '../utils/crypto';
+import { verifyPassword, hashPassword, generateSecureId } from '../utils/crypto';
 
 // ── Constantes de rate-limiting ─────────────────────────────
 const MAX_ATTEMPTS = 5;
@@ -19,10 +19,47 @@ const Login: React.FC<Props> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(true);
   const [attempts, setAttempts] = useState(0);
   const [lockUntil, setLockUntil] = useState<number>(0);
   const [lockCountdown, setLockCountdown] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Seed: garantir que existem utilizadores antes de permitir login ──
+  useEffect(() => {
+    (async () => {
+      const existing = syncRead<User[]>('system_users', []);
+      if (!existing || existing.length === 0) {
+        const adminHash = await hashPassword('str@10108893');
+        const operatorHash = await hashPassword('Operador1!');
+        const seed: User[] = [
+          { id: generateSecureId(), name: 'SARTINFO Admin', username: 'SARTINFO', passwordHash: adminHash, role: UserRole.ADMIN, status: 'Ativo' },
+          { id: generateSecureId(), name: 'Carlos Operador', username: 'OPERADOR', passwordHash: operatorHash, role: UserRole.OPERATOR, status: 'Ativo' },
+        ];
+        syncWrite('system_users', seed);
+        console.log('[Login] Seed de utilizadores criado com sucesso');
+      } else {
+        // Migrar utilizadores antigos com password em texto plano
+        let changed = false;
+        const migrated: User[] = [];
+        for (const u of existing) {
+          if (u.password && !u.passwordHash) {
+            const hash = await hashPassword(u.password);
+            const { password: _pw, ...rest } = u;
+            migrated.push({ ...rest, passwordHash: hash } as User);
+            changed = true;
+          } else {
+            migrated.push(u);
+          }
+        }
+        if (changed) {
+          syncWrite('system_users', migrated);
+          console.log('[Login] Migração de senhas concluída');
+        }
+      }
+      setIsSeeding(false);
+    })();
+  }, []);
 
   const startLockout = () => {
     const until = Date.now() + LOCKOUT_SECONDS * 1000;
@@ -146,12 +183,12 @@ const Login: React.FC<Props> = ({ onLogin }) => {
 
           <button 
             type="submit"
-            disabled={isLoading || Date.now() < lockUntil}
+            disabled={isLoading || isSeeding || Date.now() < lockUntil}
             className={`w-full py-4 px-6 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-3 shadow-xl shadow-blue-200 transition-all ${
-              isLoading || Date.now() < lockUntil ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+              isLoading || isSeeding || Date.now() < lockUntil ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
-            {isLoading ? 'Verificando...' : Date.now() < lockUntil ? `Bloqueado (${lockCountdown}s)` : 'Entrar no Sistema'} {!isLoading && Date.now() >= lockUntil ? <LogIn size={20} /> : Date.now() < lockUntil ? <Lock size={20} /> : null}
+            {isSeeding ? 'Preparando...' : isLoading ? 'Verificando...' : Date.now() < lockUntil ? `Bloqueado (${lockCountdown}s)` : 'Entrar no Sistema'} {!isLoading && !isSeeding && Date.now() >= lockUntil ? <LogIn size={20} /> : Date.now() < lockUntil ? <Lock size={20} /> : null}
           </button>
         </form>
 
