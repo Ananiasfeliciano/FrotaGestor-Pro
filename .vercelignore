@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-web
+installer-output
+release
+electron
+.git
+*.exe
+*.blockmap
+*.asar
+*.pak
+win-unpacked
