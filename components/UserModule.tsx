@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Users, Shield, User as UserIcon, Trash2, X, MoreVertical, Key } from 'lucide-react';
 import { User, UserRole } from '../types';
+import { readStorage, writeStorage } from '../utils/storage';
 
 interface Props {
   user: User;
@@ -13,22 +14,22 @@ const UserModule: React.FC<Props> = ({ user, onAction }) => {
   const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('system_users');
+    const saved = readStorage<User[] | null>('system_users', null);
     if (saved) {
-      setUsers(JSON.parse(saved));
+      setUsers(saved);
     } else {
       const initialUsers: User[] = [
-        { id: '1', name: 'SARTINFO Admin', username: 'SARTINFO', role: UserRole.ADMIN, status: 'Ativo' },
-        { id: '2', name: 'Carlos Operador', username: 'operador', role: UserRole.OPERATOR, status: 'Ativo' }
+        { id: '1', name: 'SARTINFO Admin', username: 'SARTINFO', password: 'str@10108893', role: UserRole.ADMIN, status: 'Ativo' },
+        { id: '2', name: 'Carlos Operador', username: 'OPERADOR', password: '123456', role: UserRole.OPERATOR, status: 'Ativo' }
       ];
       setUsers(initialUsers);
-      localStorage.setItem('system_users', JSON.stringify(initialUsers));
+      writeStorage('system_users', initialUsers);
     }
   }, []);
 
   const saveUsers = (newList: User[]) => {
     setUsers(newList);
-    localStorage.setItem('system_users', JSON.stringify(newList));
+    writeStorage('system_users', newList);
   };
 
   const handleCreateUser = (e: React.FormEvent) => {

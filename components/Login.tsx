@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { LogIn, Shield, User as UserIcon, AlertCircle } from 'lucide-react';
 import { User, UserRole } from '../types';
+import { readStorage, writeStorage } from '../utils/storage';
 
 interface Props {
   onLogin: (user: User) => void;
@@ -16,8 +17,10 @@ const Login: React.FC<Props> = ({ onLogin }) => {
     e.preventDefault();
     setError('');
 
-    // Credenciais obrigatórias conforme solicitado
-    if (username === 'SARTINFO' && password === 'str@10108893') {
+    const inputUser = username.trim().toUpperCase();
+
+    // 1. Credencial mestre do administrador (sempre funciona)
+    if (inputUser === 'SARTINFO' && password === 'str@10108893') {
       const adminUser: User = {
         id: 'admin-01',
         name: 'SARTINFO Admin',
@@ -25,22 +28,30 @@ const Login: React.FC<Props> = ({ onLogin }) => {
         role: UserRole.ADMIN,
         status: 'Ativo'
       };
-      localStorage.setItem('frota_user', JSON.stringify(adminUser));
+      writeStorage('frota_user', adminUser);
       onLogin(adminUser);
-    } else if (username === 'operador' && password === '123456') {
-      // Demo fallback para operador
-      const opUser: User = {
-        id: 'op-01',
-        name: 'Operador Padrão',
-        username: 'operador',
-        role: UserRole.OPERATOR,
-        status: 'Ativo'
-      };
-      localStorage.setItem('frota_user', JSON.stringify(opUser));
-      onLogin(opUser);
-    } else {
-      setError('Credenciais inválidas. Verifique usuário e senha.');
+      return;
     }
+
+    // 2. Validar contra usuários cadastrados no banco local
+    const storedUsers = readStorage<User[]>('system_users', []);
+    const matchedUser = storedUsers.find(
+      (u) => u.username.toUpperCase() === inputUser && u.password === password
+    );
+
+    if (matchedUser) {
+      if (matchedUser.status !== 'Ativo') {
+        setError('Usuário inativo. Contate o administrador.');
+        return;
+      }
+      // Salvar sessão sem expor a senha
+      const { password: _pw, ...safeUser } = matchedUser;
+      writeStorage('frota_user', safeUser as User);
+      onLogin(safeUser as User);
+      return;
+    }
+
+    setError('Credenciais inválidas. Verifique usuário e senha.');
   };
 
   return (
@@ -99,7 +110,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
         </form>
 
         <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 text-center">
-          <p className="text-xs text-slate-400">© 2023 FrotaGestor Pro. Infraestrutura SARTINFO.</p>
+          <p className="text-xs text-slate-400">© 2026 FrotaGestor Pro. Infraestrutura SARTINFO. Produzido por Ananias Feliciano</p>
         </div>
       </div>
     </div>

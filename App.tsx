@@ -27,6 +27,7 @@ import ResourceModule from './components/ResourceModule';
 import Login from './components/Login';
 import UserModule from './components/UserModule';
 import LogsModule from './components/LogsModule';
+import { readStorage, writeStorage } from './utils/storage';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -36,8 +37,7 @@ const App: React.FC = () => {
 
   // Carregar logs iniciais
   useEffect(() => {
-    const savedLogs = localStorage.getItem('frota_logs');
-    if (savedLogs) setLogs(JSON.parse(savedLogs));
+    setLogs(readStorage<AuditLog[]>('frota_logs', []));
   }, []);
 
   // Função auxiliar para registrar logs de sistema
@@ -54,12 +54,11 @@ const App: React.FC = () => {
     };
     const updatedLogs = [newLog, ...logs].slice(0, 100);
     setLogs(updatedLogs);
-    localStorage.setItem('frota_logs', JSON.stringify(updatedLogs));
+    writeStorage('frota_logs', updatedLogs);
   };
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('frota_user');
-    if (savedUser) setCurrentUser(JSON.parse(savedUser));
+    setCurrentUser(readStorage<User | null>('frota_user', null));
   }, []);
 
   const handleLogout = () => {

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Camera, FileText, CheckCircle2, AlertCircle, XCircle, X, ChevronRight, ClipboardList } from 'lucide-react';
 import { User, InspectionItemStatus, InspectionResult, Vehicle, VehicleStatus } from '../types';
+import { readStorage, writeStorage } from '../utils/storage';
 
 interface Props {
   user: User;
@@ -28,11 +29,8 @@ const InspectionModule: React.FC<Props> = ({ user, onAction }) => {
   });
 
   useEffect(() => {
-    const vSaved = localStorage.getItem('fleet_vehicles');
-    if (vSaved) setVehicles(JSON.parse(vSaved));
-    
-    const iSaved = localStorage.getItem('fleet_inspections');
-    if (iSaved) setInspections(JSON.parse(iSaved));
+    setVehicles(readStorage<Vehicle[]>('fleet_vehicles', []));
+    setInspections(readStorage<any[]>('fleet_inspections', []));
   }, []);
 
   const updateItemStatus = (id: string, status: InspectionItemStatus) => {
@@ -58,14 +56,15 @@ const InspectionModule: React.FC<Props> = ({ user, onAction }) => {
 
     const updatedInspections = [newInspection, ...inspections];
     setInspections(updatedInspections);
-    localStorage.setItem('fleet_inspections', JSON.stringify(updatedInspections));
+    writeStorage('fleet_inspections', updatedInspections);
 
     // Se reprovado, coloca veículo em manutenção
     if (inspectionData.status_final === InspectionResult.REJECTED && targetVehicle) {
       const updatedVehicles = vehicles.map(v => 
         v.id === targetVehicle.id ? { ...v, status: VehicleStatus.MAINTENANCE } : v
       );
-      localStorage.setItem('fleet_vehicles', JSON.stringify(updatedVehicles));
+      setVehicles(updatedVehicles);
+      writeStorage('fleet_vehicles', updatedVehicles);
     }
 
     onAction('FINALIZAÇÃO', `Inspeção do veículo ${newInspection.veiculo_placa} finalizada como ${newInspection.status_final}.`);

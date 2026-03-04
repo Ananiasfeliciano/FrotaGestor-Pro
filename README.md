@@ -18,3 +18,14 @@ View your app in AI Studio: https://ai.studio/apps/drive/1MIPB1i2VSa7ICU1R1Fqciu
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Rodar como aplicativo de Desktop (Windows)
+
+1. Instale as dependências:
+   `npm install`
+2. Executar em modo desktop durante desenvolvimento:
+   `npm run electron:dev`
+3. Gerar aplicativo desktop (pasta com `.exe`):
+   `npm run electron:build`
+4. Executável final:
+   `release/FrotaGestor Pro-win32-x64/FrotaGestor Pro.exe`

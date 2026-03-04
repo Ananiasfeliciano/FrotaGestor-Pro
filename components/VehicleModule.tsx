@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Edit2, Trash2, Eye, X, Upload, Car, Save } from 'lucide-react';
 import { Vehicle, VehicleStatus, User, UserRole } from '../types';
+import { readStorage, writeStorage } from '../utils/storage';
 
 interface Props {
   user: User;
@@ -15,9 +16,9 @@ const VehicleModule: React.FC<Props> = ({ user, onAction }) => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('fleet_vehicles');
+    const saved = readStorage<Vehicle[] | null>('fleet_vehicles', null);
     if (saved) {
-      setVehicles(JSON.parse(saved));
+      setVehicles(saved);
     } else {
       const initial = [{
         id: '1', placa: 'SART-2024', renavam: '123456789', chassi: '9BW123', marca: 'VW', modelo: 'Gol',
@@ -25,13 +26,13 @@ const VehicleModule: React.FC<Props> = ({ user, onAction }) => {
         quilometragem: 1000, data_ultima_revisao: '2023-10-01', status: VehicleStatus.ACTIVE, observacoes: 'Frota inicial'
       }];
       setVehicles(initial);
-      localStorage.setItem('fleet_vehicles', JSON.stringify(initial));
+      writeStorage('fleet_vehicles', initial);
     }
   }, []);
 
   const saveToStorage = (list: Vehicle[]) => {
     setVehicles(list);
-    localStorage.setItem('fleet_vehicles', JSON.stringify(list));
+    writeStorage('fleet_vehicles', list);
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {

@@ -24,6 +24,7 @@ import {
   Droplets
 } from 'lucide-react';
 import { User, Receipt, ReceiptItem, Vehicle, VehicleStatus } from '../types';
+import { readStorage, writeStorage } from '../utils/storage';
 
 interface Props {
   type: 'station' | 'workshop' | 'parts';
@@ -78,16 +79,13 @@ const ResourceModule: React.FC<Props> = ({ type, user, onAction }) => {
   const config = configs[type];
 
   useEffect(() => {
-    const saved = localStorage.getItem(config.storageKey);
-    if (saved) setData(JSON.parse(saved));
-
-    const savedVehicles = localStorage.getItem('fleet_vehicles');
-    if (savedVehicles) setVehicles(JSON.parse(savedVehicles));
+    setData(readStorage<any[]>(config.storageKey, []));
+    setVehicles(readStorage<Vehicle[]>('fleet_vehicles', []));
   }, [type, config.storageKey]);
 
   const saveToStorage = (list: any[]) => {
     setData(list);
-    localStorage.setItem(config.storageKey, JSON.stringify(list));
+    writeStorage(config.storageKey, list);
   };
 
   const addReceiptItem = () => {
@@ -160,9 +158,9 @@ const ResourceModule: React.FC<Props> = ({ type, user, onAction }) => {
 
     // Atualização de Frota (KM e Status)
     if (vehicleId) {
-      const vSaved = localStorage.getItem('fleet_vehicles');
+      const vSaved = readStorage<Vehicle[] | null>('fleet_vehicles', null);
       if (vSaved) {
-        const vList: Vehicle[] = JSON.parse(vSaved);
+        const vList: Vehicle[] = vSaved;
         const updatedVList = vList.map(v => {
           if (v.id === vehicleId) {
             let uV = { ...v };
@@ -172,7 +170,7 @@ const ResourceModule: React.FC<Props> = ({ type, user, onAction }) => {
           }
           return v;
         });
-        localStorage.setItem('fleet_vehicles', JSON.stringify(updatedVList));
+        writeStorage('fleet_vehicles', updatedVList);
         setVehicles(updatedVList);
       }
     }

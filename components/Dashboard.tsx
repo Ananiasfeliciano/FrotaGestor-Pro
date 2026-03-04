@@ -37,6 +37,7 @@ import {
   Gauge
 } from 'lucide-react';
 import { Vehicle, VehicleStatus, Inspection, Receipt } from '../types';
+import { readStorage } from '../utils/storage';
 
 ChartJS.register(
   CategoryScale, 
@@ -74,13 +75,12 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     // Carregar Veículos
-    const vSaved = localStorage.getItem('fleet_vehicles');
-    const vData: Vehicle[] = vSaved ? JSON.parse(vSaved) : [];
+    const vData: Vehicle[] = readStorage<Vehicle[]>('fleet_vehicles', []);
     setVehicles(vData);
 
     // Carregar parceiros
-    const workshops = JSON.parse(localStorage.getItem('fleet_workshops') || '[]');
-    const stations = JSON.parse(localStorage.getItem('fleet_stations') || '[]');
+    const workshops = readStorage<any[]>('fleet_workshops', []);
+    const stations = readStorage<any[]>('fleet_stations', []);
     
     // Processar Alertas
     const REVISION_CYCLE_DAYS = 365;
@@ -158,11 +158,10 @@ const Dashboard: React.FC = () => {
     setRecentOilChanges(allOilChanges.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5));
 
     // Carregar Inspeções
-    const iSaved = localStorage.getItem('fleet_inspections');
-    setInspections(iSaved ? JSON.parse(iSaved) : []);
+    setInspections(readStorage<any[]>('fleet_inspections', []));
 
     // Consolidar Lançamentos
-    const parts = JSON.parse(localStorage.getItem('fleet_parts') || '[]');
+    const parts = readStorage<any[]>('fleet_parts', []);
     const allReceipts: any[] = [];
     const spendingByMonth = new Array(10).fill(0);
 
