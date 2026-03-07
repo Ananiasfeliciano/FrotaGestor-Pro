@@ -9,6 +9,16 @@ autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.logger = console;
 
+// Token para acesso a repositórios privados no GitHub
+// Definir via variável de ambiente GH_TOKEN ou GITHUB_TOKEN
+const ghToken = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '';
+if (ghToken) {
+  autoUpdater.requestHeaders = { Authorization: `token ${ghToken}` };
+  console.log('[Updater] GitHub token configurado para repo privado');
+} else {
+  console.warn('[Updater] Nenhum GH_TOKEN encontrado. Auto-update só funciona com repo público ou token configurado.');
+}
+
 // ── Single-instance lock ─────────────────────────────────
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -133,7 +143,9 @@ function createWindow() {
     mainWindow.show();
     // Verificar atualizações 3s após abrir a janela
     if (!isDev) {
-      setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 3000);
+      setTimeout(() => autoUpdater.checkForUpdates().catch((err) => {
+        console.warn('[Updater] Falha ao verificar atualizações:', err.message || err);
+      }), 3000);
     }
   });
 

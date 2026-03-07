@@ -35,6 +35,9 @@ module.exports = {
       owner: 'Ananiasfeliciano',
       repo: 'frotagestor-pro---sistema-de-gest-o-de-frotas',
       releaseType: 'release',
+      // Para repos privados, definir GH_TOKEN como variável de ambiente
+      // O electron-updater usará automaticamente para autenticar
+      private: true,
     },
   ],
 
