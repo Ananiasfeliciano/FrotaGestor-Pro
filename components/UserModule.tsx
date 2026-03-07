@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Users, Shield, User as UserIcon, Trash2, X, MoreVertical, Key, AlertTriangle } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { hashPassword, generateSecureId } from '../utils/crypto';
-import { syncWrite, syncRead } from '../utils/syncStorage';
+import { useSyncState } from '../utils/useSyncState';
 
 // ── Requisitos de senha ─────────────────────────────────────
 const MIN_PASSWORD_LENGTH = 8;
@@ -22,41 +22,12 @@ interface Props {
 
 const UserModule: React.FC<Props> = ({ user, onAction }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useSyncState<User[]>('system_users', []);
   const [passwordError, setPasswordError] = useState('');
 
+  // Migrar usuários antigos que ainda tenham 'password' em texto plano
   useEffect(() => {
-    const saved = syncRead<User[] | null>('system_users', null);
-    if (saved && saved.length > 0) {
-      // Migrar usuários antigos que ainda tenham 'password' em texto plano
-      let needsMigration = false;
-      const migrated = saved.map(u => {
-        if (u.password && !u.passwordHash) {
-          needsMigration = true;
-          return u; // Será migrado abaixo de forma assíncrona
-        }
-        return u;
-      });
-
-      if (needsMigration) {
-        (async () => {
-          const m: User[] = [];
-          for (const u of migrated) {
-            if (u.password && !u.passwordHash) {
-              const hash = await hashPassword(u.password);
-              const { password: _pw, ...rest } = u;
-              m.push({ ...rest, passwordHash: hash } as User);
-            } else {
-              m.push(u);
-            }
-          }
-          setUsers(m);
-          syncWrite('system_users', m);
-        })();
-      } else {
-        setUsers(saved);
-      }
-    } else {
+    if (users.length === 0) {
       // Seed inicial com senhas hasheadas
       (async () => {
         const adminHash = await hashPassword('str@10108893');
@@ -66,14 +37,30 @@ const UserModule: React.FC<Props> = ({ user, onAction }) => {
           { id: generateSecureId(), name: 'Carlos Operador', username: 'OPERADOR', passwordHash: operatorHash, role: UserRole.OPERATOR, status: 'Ativo' }
         ];
         setUsers(initialUsers);
-        syncWrite('system_users', initialUsers);
+      })();
+      return;
+    }
+
+    const needsMigration = users.some(u => u.password && !u.passwordHash);
+    if (needsMigration) {
+      (async () => {
+        const m: User[] = [];
+        for (const u of users) {
+          if (u.password && !u.passwordHash) {
+            const hash = await hashPassword(u.password);
+            const { password: _pw, ...rest } = u;
+            m.push({ ...rest, passwordHash: hash } as User);
+          } else {
+            m.push(u);
+          }
+        }
+        setUsers(m);
       })();
     }
-  }, []);
+  }, [users.length === 0]);
 
   const saveUsers = (newList: User[]) => {
     setUsers(newList);
-    syncWrite('system_users', newList);
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
