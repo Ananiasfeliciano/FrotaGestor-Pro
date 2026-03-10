@@ -111,7 +111,7 @@ const App: React.FC = () => {
   if (!currentUser) return <Login onLogin={(user) => setCurrentUser(user)} />;
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: [UserRole.ADMIN, UserRole.OPERATOR] },
+    { id: 'dashboard', label: 'Painel', icon: <LayoutDashboard size={20} />, roles: [UserRole.ADMIN, UserRole.OPERATOR] },
     { id: 'vehicles', label: 'Veículos', icon: <Car size={20} />, roles: [UserRole.ADMIN, UserRole.OPERATOR] },
     { id: 'inspections', label: 'Inspeções', icon: <ClipboardCheck size={20} />, roles: [UserRole.ADMIN, UserRole.OPERATOR] },
     { id: 'users', label: 'Usuários', icon: <Users size={20} />, roles: [UserRole.ADMIN] },

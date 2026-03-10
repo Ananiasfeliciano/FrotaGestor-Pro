@@ -276,7 +276,7 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
           <h3 className="font-black text-slate-800 text-xl tracking-tighter flex items-center gap-2 uppercase mb-8">
-            <TrendingUp size={24} className="text-blue-600" /> Fluxo de Despesas 2024
+            <TrendingUp size={24} className="text-blue-600" /> Fluxo de Despesas {new Date().getFullYear()}
           </h3>
           <div className="h-[320px]">
             <Bar 

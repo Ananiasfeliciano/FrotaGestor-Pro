@@ -354,7 +354,7 @@ const ResourceModule: React.FC<Props> = ({ type, user, onAction }) => {
                     <div className="space-y-4">
                        <div className="flex items-center justify-between">
                           <label className="text-[10px] font-black text-slate-500 uppercase">Itens da Nota (Peças/Serviços)</label>
-                          <button type="button" onClick={addReceiptItem} className="flex items-center gap-1 text-[10px] font-black text-indigo-600 uppercase hover:underline"><Plus size={12}/> Add Item</button>
+                          <button type="button" onClick={addReceiptItem} className="flex items-center gap-1 text-[10px] font-black text-indigo-600 uppercase hover:underline"><Plus size={12}/> Adicionar Item</button>
                        </div>
                        <div className="space-y-3">
                           {receiptItems.length === 0 && (

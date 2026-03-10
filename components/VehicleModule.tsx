@@ -135,7 +135,7 @@ const VehicleModule: React.FC<Props> = ({ user, onAction }) => {
                     v.status === VehicleStatus.ACTIVE ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
                     v.status === VehicleStatus.MAINTENANCE ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-red-50 text-red-700 border-red-100'
                   }`}>
-                    {v.status}
+                    {v.status === VehicleStatus.ACTIVE ? 'Ativo' : v.status === VehicleStatus.MAINTENANCE ? 'Manutenção' : 'Inativo'}
                   </span>
                 </td>
                 <td className="px-6 py-4">

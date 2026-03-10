@@ -59,11 +59,28 @@ function getRef(key: string) {
 // Precisamos ignorar o evento de storage que isso gera para não reenviar ao Firebase.
 let _ignoreNextLocalWrite = new Set<string>();
 
+// ── Chave de timestamp local ─────────────────────────────────
+function localTimestampKey(key: string): string {
+  return `_sync_ts_${key}`;
+}
+
+function getLocalTimestamp(key: string): number {
+  const raw = localStorage.getItem(localTimestampKey(key));
+  return raw ? parseInt(raw, 10) : 0;
+}
+
+function setLocalTimestamp(key: string, ts: number): void {
+  localStorage.setItem(localTimestampKey(key), String(ts));
+}
+
 // ── ESCREVER: localStorage + Firebase ────────────────────────
 export function syncWrite<T>(key: string, value: T): boolean {
+  const now = Date.now();
+
   // 1. Gravar no localStorage (sempre, para funcionar offline)
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    setLocalTimestamp(key, now);
   } catch {
     return false;
   }
@@ -74,7 +91,7 @@ export function syncWrite<T>(key: string, value: T): boolean {
     if (fbRef) {
       const envelope: SyncEnvelope<T> = {
         data: value,
-        updatedAt: Date.now(),
+        updatedAt: now,
         updatedBy: deviceId,
       };
       set(fbRef, envelope).catch((err) => {
@@ -123,6 +140,7 @@ export function syncSubscribe<T>(key: SyncKey, callback: SyncListener<T>): () =>
     _ignoreNextLocalWrite.add(key);
     try {
       localStorage.setItem(key, JSON.stringify(val.data));
+      setLocalTimestamp(key, val.updatedAt);
     } catch { /* ignore */ }
     setTimeout(() => _ignoreNextLocalWrite.delete(key), 100);
 
@@ -165,13 +183,25 @@ export async function syncInitialPush(): Promise<void> {
       } else if (remoteEnvelope?.data && !localRaw) {
         // Firebase tem dados mas local está vazio → baixar
         localStorage.setItem(key, JSON.stringify(remoteEnvelope.data));
+        setLocalTimestamp(key, remoteEnvelope.updatedAt);
         console.log(`[Sync] Pull inicial: "${key}" ← Firebase`);
       } else if (remoteEnvelope?.data && localRaw) {
         // Ambos existem: mais recente vence
-        const localTime = 0; // Dados locais não têm timestamp, Firebase tem prioridade
-        if (remoteEnvelope.updatedAt > localTime) {
+        const localTime = getLocalTimestamp(key);
+        if (remoteEnvelope.updatedAt >= localTime) {
+          // Firebase é mais recente ou igual → baixar
           localStorage.setItem(key, JSON.stringify(remoteEnvelope.data));
+          setLocalTimestamp(key, remoteEnvelope.updatedAt);
           console.log(`[Sync] Merge: "${key}" ← Firebase (mais recente)`);
+        } else {
+          // Local é mais recente → enviar ao Firebase
+          const localData = JSON.parse(localRaw);
+          await set(fbRef, {
+            data: localData,
+            updatedAt: localTime,
+            updatedBy: deviceId,
+          });
+          console.log(`[Sync] Merge: "${key}" → Firebase (local mais recente)`);
         }
       }
     } catch (err) {

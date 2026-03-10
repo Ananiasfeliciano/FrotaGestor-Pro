@@ -2,7 +2,10 @@
   "rules": {
     "frotagestor": {
       ".read": true,
-      ".write": true
+      ".write": true,
+      "$key": {
+        ".validate": "newData.hasChildren(['data', 'updatedAt', 'updatedBy'])"
+      }
     }
   }
 }
