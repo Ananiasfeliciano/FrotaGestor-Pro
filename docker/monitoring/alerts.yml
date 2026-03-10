@@ -1,0 +1,93 @@
+# ═══════════════════════════════════════════════════════════
+# Prometheus — Regras de Alerta
+# ═══════════════════════════════════════════════════════════
+
+groups:
+  - name: frotagestor-alerts
+    rules:
+      # ── API ─────────────────────────────────────────────
+      - alert: APIDown
+        expr: up{job="frotagestor-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API FrotaGestor indisponível"
+          description: "A API está fora do ar há mais de 1 minuto."
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="frotagestor-api"}[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latência alta na API"
+          description: "p95 de latência acima de 2s nos últimos 5 minutos."
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status_code=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Taxa de erros alta"
+          description: "Mais de 5% das requisições retornando erro 5xx."
+
+      # ── Database ────────────────────────────────────────
+      - alert: DatabaseDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL indisponível"
+
+      - alert: DatabaseConnectionsHigh
+        expr: pg_stat_activity_count / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL: 80%+ das conexões em uso"
+
+      # ── Redis ───────────────────────────────────────────
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis indisponível"
+
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis usando 90%+ da memória"
+
+      # ── Host ────────────────────────────────────────────
+      - alert: HighCPU
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Uso de CPU acima de 80%"
+
+      - alert: HighMemory
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Uso de memória acima de 90%"
+
+      - alert: DiskSpaceLow
+        expr: (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disco quase cheio (85%+)"

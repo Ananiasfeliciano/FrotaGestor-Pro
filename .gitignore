@@ -33,3 +33,13 @@ release
 
 .vercel
 .env*.local
+
+# Docker / Infrastructure
+docker/ssl/
+backups/
+installer-build.log
+
+# Backend
+backend/node_modules
+backend/dist
+backend/logs

@@ -1,0 +1,47 @@
+# ═══════════════════════════════════════════════════════════
+# Prometheus — Configuração FrotaGestor Pro
+# ═══════════════════════════════════════════════════════════
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+rule_files:
+  - "alerts.yml"
+
+scrape_configs:
+  # ── API Backend ─────────────────────────────────────────
+  - job_name: "frotagestor-api"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["backend:4000"]
+        labels:
+          service: "api"
+          environment: "production"
+
+  # ── Node Exporter (métricas do host) ────────────────────
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels:
+          service: "host"
+
+  # ── Redis Exporter ──────────────────────────────────────
+  - job_name: "redis-exporter"
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+        labels:
+          service: "redis"
+
+  # ── PostgreSQL Exporter ─────────────────────────────────
+  - job_name: "postgres-exporter"
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+        labels:
+          service: "postgres"
+
+  # ── Prometheus (auto-monitoramento) ─────────────────────
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

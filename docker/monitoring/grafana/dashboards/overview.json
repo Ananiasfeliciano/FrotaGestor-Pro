@@ -1,0 +1,116 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Requisições por Segundo",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [{
+        "expr": "rate(http_requests_total{job=\"frotagestor-api\"}[5m])",
+        "legendFormat": "{{method}} {{route}} {{status_code}}"
+      }]
+    },
+    {
+      "title": "Latência API (p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [{
+        "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"frotagestor-api\"}[5m]))",
+        "legendFormat": "p95"
+      }]
+    },
+    {
+      "title": "Taxa de Erros (%)",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 8 },
+      "targets": [{
+        "expr": "rate(http_requests_total{job=\"frotagestor-api\",status_code=~\"5..\"}[5m]) / rate(http_requests_total{job=\"frotagestor-api\"}[5m]) * 100",
+        "legendFormat": "5xx %"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "unit": "percent",
+          "max": 100
+        }
+      }
+    },
+    {
+      "title": "Conexões Ativas",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 8 },
+      "targets": [{
+        "expr": "active_connections{job=\"frotagestor-api\"}",
+        "legendFormat": "Conexões"
+      }]
+    },
+    {
+      "title": "CPU Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 8 },
+      "targets": [{
+        "expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+        "legendFormat": "CPU %"
+      }]
+    },
+    {
+      "title": "Memória",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 8 },
+      "targets": [{
+        "expr": "(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100",
+        "legendFormat": "RAM %"
+      }]
+    },
+    {
+      "title": "PostgreSQL — Conexões Ativas",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 14 },
+      "targets": [{
+        "expr": "pg_stat_activity_count",
+        "legendFormat": "Conexões"
+      }]
+    },
+    {
+      "title": "Redis — Memória Usada",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 14 },
+      "targets": [{
+        "expr": "redis_memory_used_bytes",
+        "legendFormat": "Bytes"
+      }],
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" }
+      }
+    },
+    {
+      "title": "Redis — Hit Rate",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 14 },
+      "targets": [{
+        "expr": "redis_keyspace_hits_total / (redis_keyspace_hits_total + redis_keyspace_misses_total) * 100",
+        "legendFormat": "Hit %"
+      }],
+      "fieldConfig": {
+        "defaults": { "unit": "percent" }
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["frotagestor", "api", "infra"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "FrotaGestor Pro — Overview",
+  "uid": "frotagestor-overview"
+}
