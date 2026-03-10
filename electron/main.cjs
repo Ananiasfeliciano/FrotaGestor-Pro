@@ -114,6 +114,38 @@ ipcMain.handle('app:version', () => {
   return app.getVersion();
 });
 
+// ── Permitir conexões Firebase no protocolo file:// ──────
+function setupFirebaseSecurity() {
+  const { session } = require('electron');
+
+  // Permitir WebSocket e HTTP para domínios Firebase
+  const allowedOrigins = [
+    'https://*.firebaseio.com',
+    'wss://*.firebaseio.com',
+    'https://*.firebasedatabase.app',
+    'wss://*.firebasedatabase.app',
+    'https://firebaseinstallations.googleapis.com',
+    'https://www.googleapis.com',
+  ];
+
+  // Remover CSP restritivo em respostas HTTP para permitir Firebase
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const headers = { ...details.responseHeaders };
+    // Não bloquear Firebase por content-security-policy de respostas externas
+    delete headers['content-security-policy'];
+    delete headers['Content-Security-Policy'];
+    callback({ responseHeaders: headers });
+  });
+
+  // Permitir requisições para domínios Firebase quando carregado de file://
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: ['https://*.firebaseio.com/*', 'wss://*.firebaseio.com/*', 'https://*.googleapis.com/*'] },
+    (details, callback) => {
+      callback({ requestHeaders: details.requestHeaders });
+    }
+  );
+}
+
 // ── Window creation ──────────────────────────────────────
 function createWindow() {
   const iconPath = path.join(__dirname, '..', 'build', 'icon.png');
@@ -160,6 +192,7 @@ function createWindow() {
 
 // ── App lifecycle ────────────────────────────────────────
 app.whenReady().then(() => {
+  setupFirebaseSecurity();
   setupAutoUpdater();
   createWindow();
 
