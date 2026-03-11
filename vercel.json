@@ -1,6 +1,6 @@
 {
   "framework": null,
-  "installCommand": "npm install --omit=optional",
+  "installCommand": "npm install",
   "buildCommand": "node build/generate-pwa-icons.cjs && npx vite build",
   "outputDirectory": "dist-web",
   "rewrites": [
