@@ -9,6 +9,14 @@ autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.logger = console;
 
+// Forçar o repositório correto (evita usar nome da pasta como fallback)
+autoUpdater.setFeedURL({
+  provider: 'github',
+  owner: 'Ananiasfeliciano',
+  repo: 'FrotaGestor-Pro',
+  releaseType: 'release',
+});
+
 // Token para acesso a repositórios privados no GitHub
 // Definir via variável de ambiente GH_TOKEN ou GITHUB_TOKEN
 const ghToken = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '';
