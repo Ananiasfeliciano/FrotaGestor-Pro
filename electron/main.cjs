@@ -1,31 +1,8 @@
 const path = require('node:path');
 const { app, BrowserWindow, Menu, ipcMain } = require('electron');
-const { autoUpdater } = require('electron-updater');
+const updater = require('./updater.cjs');
 
 const isDev = !app.isPackaged;
-
-// ── Auto-updater config ──────────────────────────────────
-autoUpdater.autoDownload = false;
-autoUpdater.autoInstallOnAppQuit = true;
-autoUpdater.logger = console;
-
-// Forçar o repositório correto (evita usar nome da pasta como fallback)
-autoUpdater.setFeedURL({
-  provider: 'github',
-  owner: 'Ananiasfeliciano',
-  repo: 'FrotaGestor-Pro',
-  releaseType: 'release',
-});
-
-// Token para acesso a repositórios privados no GitHub
-// Definir via variável de ambiente GH_TOKEN ou GITHUB_TOKEN
-const ghToken = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '';
-if (ghToken) {
-  autoUpdater.requestHeaders = { Authorization: `token ${ghToken}` };
-  console.log('[Updater] GitHub token configurado para repo privado');
-} else {
-  console.warn('[Updater] Nenhum GH_TOKEN encontrado. Auto-update só funciona com repo público ou token configurado.');
-}
 
 // ── Single-instance lock ─────────────────────────────────
 const gotLock = app.requestSingleInstanceLock();
@@ -46,76 +23,18 @@ function getMainWindow() {
   return BrowserWindow.getAllWindows()[0] || null;
 }
 
-// ── Auto-update events → renderer ────────────────────────
-function setupAutoUpdater() {
-  autoUpdater.on('checking-for-update', () => {
-    const win = getMainWindow();
-    if (win) win.webContents.send('update-status', { status: 'checking' });
-  });
-
-  autoUpdater.on('update-available', (info) => {
-    const win = getMainWindow();
-    if (win) win.webContents.send('update-status', {
-      status: 'available',
-      version: info.version,
-      releaseNotes: info.releaseNotes || '',
-    });
-  });
-
-  autoUpdater.on('update-not-available', () => {
-    const win = getMainWindow();
-    if (win) win.webContents.send('update-status', { status: 'not-available' });
-  });
-
-  autoUpdater.on('download-progress', (progress) => {
-    const win = getMainWindow();
-    if (win) win.webContents.send('update-status', {
-      status: 'downloading',
-      percent: Math.round(progress.percent),
-      transferred: progress.transferred,
-      total: progress.total,
-    });
-  });
-
-  autoUpdater.on('update-downloaded', (info) => {
-    const win = getMainWindow();
-    if (win) win.webContents.send('update-status', {
-      status: 'downloaded',
-      version: info.version,
-    });
-  });
-
-  autoUpdater.on('error', (err) => {
-    const win = getMainWindow();
-    if (win) win.webContents.send('update-status', {
-      status: 'error',
-      message: err.message || String(err),
-    });
-  });
-}
-
 // ── IPC handlers (renderer → main) ──────────────────────
 ipcMain.handle('updater:check', async () => {
   if (isDev) return { status: 'dev-mode' };
-  try {
-    const result = await autoUpdater.checkForUpdates();
-    return { status: 'ok', version: result?.updateInfo?.version };
-  } catch (err) {
-    return { status: 'error', message: String(err) };
-  }
+  return updater.checkForUpdates();
 });
 
 ipcMain.handle('updater:download', async () => {
-  try {
-    await autoUpdater.downloadUpdate();
-    return { status: 'ok' };
-  } catch (err) {
-    return { status: 'error', message: String(err) };
-  }
+  return updater.downloadUpdate();
 });
 
 ipcMain.handle('updater:install', () => {
-  autoUpdater.quitAndInstall(false, true);
+  updater.installUpdate();
 });
 
 ipcMain.handle('app:version', () => {
@@ -181,12 +100,8 @@ function createWindow() {
   // Mostra a janela apenas quando pronta (evita flash branco)
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    // Verificar atualizações 3s após abrir a janela
-    if (!isDev) {
-      setTimeout(() => autoUpdater.checkForUpdates().catch((err) => {
-        console.warn('[Updater] Falha ao verificar atualizações:', err.message || err);
-      }), 3000);
-    }
+    // Verificar atualizações 3s após abrir a janela (produção)
+    updater.scheduleAutoCheck(3000);
   });
 
   if (isDev) {
@@ -201,7 +116,7 @@ function createWindow() {
 // ── App lifecycle ────────────────────────────────────────
 app.whenReady().then(() => {
   setupFirebaseSecurity();
-  setupAutoUpdater();
+  updater.initAutoUpdate();
   createWindow();
 
   app.on('activate', () => {

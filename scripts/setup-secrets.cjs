@@ -107,20 +107,17 @@ async function main() {
   if (keyRes.status === 200) {
     console.log('\n✅ Token has secrets access! Setting secrets...\n');
     
-    // We need tweetsodium for proper NaCl encryption
-    // Check if it's available
-    let sodium;
+    // Load tweetsodium for NaCl sealed-box encryption
+    let seal;
     try {
-      sodium = require('tweetsodium');
+      const sodium = require('tweetsodium');
+      seal = sodium.seal;
     } catch {
-      try {
-        sodium = require('libsodium-wrappers');
-      } catch {
-        console.log('Installing tweetsodium for secret encryption...');
-        const { execSync } = require('child_process');
-        execSync('npm install tweetsodium --no-save', { stdio: 'inherit' });
-        sodium = require('tweetsodium');
-      }
+      console.log('Installing tweetsodium...');
+      const { execSync } = require('child_process');
+      execSync('npm install tweetsodium --no-save', { stdio: 'inherit' });
+      const sodium = require('tweetsodium');
+      seal = sodium.seal;
     }
     
     const publicKey = keyRes.body.key;
@@ -134,10 +131,10 @@ async function main() {
         continue;
       }
       
-      // Encrypt using tweetsodium
+      // Encrypt using tweetsodium sealed box
       const messageBytes = Buffer.from(value);
       const keyBytes = Buffer.from(publicKey, 'base64');
-      const encryptedBytes = sodium.seal(messageBytes, keyBytes);
+      const encryptedBytes = seal(messageBytes, keyBytes);
       const encrypted = Buffer.from(encryptedBytes).toString('base64');
       
       const res = await api('PUT', `/repos/${REPO}/actions/secrets/${name}`, {

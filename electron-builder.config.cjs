@@ -33,7 +33,7 @@ module.exports = {
     {
       provider: 'github',
       owner: 'Ananiasfeliciano',
-      repo: 'FrotaGestor-Pro',
+      repo: 'frotagestor-pro---sistema-de-gest-o-de-frotas',
       releaseType: 'release',
     },
   ],
