@@ -39,6 +39,10 @@ docker/ssl/
 backups/
 installer-build.log
 
+# Temporary scripts and outputs
+scripts/*.txt
+main.cjs
+
 # Backend
 backend/node_modules
 backend/dist

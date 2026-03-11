@@ -229,10 +229,7 @@ const SettingsModule: React.FC<Props> = ({ user, onAction }) => {
 
   // ── Update actions ────────────────────────────────────
   const handleCheckUpdate = async () => {
-    if (!isElectron) {
-      setUpdateInfo({ status: 'error', message: 'Atualizações disponíveis apenas no app desktop (Electron).' });
-      return;
-    }
+    if (!isElectron) return;
     setUpdateInfo({ status: 'checking' });
     await window.electronAPI!.updater.check();
   };
@@ -490,14 +487,21 @@ const SettingsModule: React.FC<Props> = ({ user, onAction }) => {
                         <span className="font-bold text-sm">Você está usando a versão mais recente!</span>
                       </div>
                     )}
-                    <button
-                      onClick={handleCheckUpdate}
-                      className="inline-flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-blue-200"
-                    >
-                      <RefreshCw size={18} /> Verificar Atualizações
-                    </button>
-                    {!isElectron && (
-                      <p className="text-xs text-amber-500 flex items-center justify-center gap-1"><AlertCircle size={14} /> Atualizações automáticas disponíveis apenas no app desktop.</p>
+                    {isElectron ? (
+                      <button
+                        onClick={handleCheckUpdate}
+                        className="inline-flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-blue-200"
+                      >
+                        <RefreshCw size={18} /> Verificar Atualizações
+                      </button>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-4 py-3 rounded-xl border border-amber-100">
+                          <Monitor size={18} />
+                          <span className="text-sm font-semibold">Atualizações automáticas disponíveis apenas no app desktop (Electron).</span>
+                        </div>
+                        <p className="text-xs text-slate-400">Baixe o instalador desktop para receber atualizações automáticas.</p>
+                      </div>
                     )}
                   </div>
                 )}
