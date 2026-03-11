@@ -1,7 +1,7 @@
 {
   "name": "frotagestor-pro-sistema-de-gestao-de-frotas",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Sistema de Gestão de Frotas — SARTINFO",
   "author": "SARTINFO",
   "main": "electron/main.cjs",
